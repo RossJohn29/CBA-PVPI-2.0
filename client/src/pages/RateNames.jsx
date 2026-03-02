@@ -1,18 +1,7 @@
 // client/src/pages/RateNames.jsx
-// Single component replacing surveyratenamespeer.html,
-// surveyratenamessubordinate.html, and surveyratenamessuperior.html.
-//
-// All data is live from Supabase via Express:
-//   • Rater name   → from surveyStore (set on login, users.full_name)
-//   • Ratee list   → GET /api/v1/survey/ratees?relationship=...
-//                    (ratee_rater_assignments joined to users for the active period)
-//   • Date         → defaults to today, fully editable
-//
-// All original HTML class names, IDs, input names, and labels are preserved.
-
-import { useState, useEffect }    from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import useSurveyStore             from "../store/surveyStore";
+import { useState, useEffect }        from "react";
+import { useNavigate, useParams }     from "react-router-dom";
+import useSurveyStore                 from "../store/surveyStore";
 import { getRatees, getActivePeriod } from "../api/survey";
 import "../assets/RateNames.css";
 
@@ -22,8 +11,6 @@ function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-// ── Per-relationship config ───────────────────────────────────────────────────
-// Preserves every original HTML ID, input name, class name, and label exactly.
 const CONFIG = {
   superior: {
     formTitle:      "Superior Assessment Form",
@@ -69,17 +56,69 @@ const CONFIG = {
   },
 };
 
-export default function RateNames() {
-  const navigate         = useNavigate();
-  const { relationship } = useParams(); // 'subordinate' | 'superior' | 'peer'
+// ── Inline error banner with specific guidance ────────────────────────────────
+function ErrorBanner({ error, onRetry }) {
+  if (!error) return null;
 
-  const rater            = useSurveyStore((s) => s.rater);
-  const token            = useSurveyStore((s) => s.token);
-  const logout           = useSurveyStore((s) => s.logout);
-  const setSelectedRatee = useSurveyStore((s) => s.setSelectedRatee);
+  // Derive a helpful hint based on the error type / status
+  let hint = null;
+  if (error.status === 0) {
+    hint = "👉 Make sure your backend server is running: cd server && npm run dev";
+  } else if (error.status === 401) {
+    hint = "👉 Your session expired. Please log out and log in again.";
+  } else if (error.status === 404) {
+    hint = "👉 No active evaluation period found. Ask an admin to activate a period in Supabase.";
+  } else if (error.status === 500) {
+    hint = "👉 Database error. Check your Supabase tables and RLS policies.";
+  }
+
+  return (
+    <div style={{
+      margin: "1rem auto",
+      maxWidth: "500px",
+      padding: "1rem",
+      backgroundColor: "#fff3cd",
+      border: "1px solid #ffc107",
+      borderRadius: "8px",
+      textAlign: "center",
+    }}>
+      <p style={{ color: "#856404", fontWeight: "bold", marginBottom: "4px" }}>
+        ⚠️ {error.message}
+      </p>
+      {hint && (
+        <p style={{ color: "#856404", fontSize: "13px", marginBottom: "8px" }}>
+          {hint}
+        </p>
+      )}
+      <button
+        onClick={onRetry}
+        style={{
+          marginTop: "4px",
+          padding: "6px 16px",
+          backgroundColor: "#2B6CA3",
+          color: "#fff",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontSize: "14px",
+        }}
+      >
+        🔄 Retry
+      </button>
+    </div>
+  );
+}
+
+export default function RateNames() {
+  const navigate          = useNavigate();
+  const { relationship }  = useParams();
+
+  const rater             = useSurveyStore((s) => s.rater);
+  const token             = useSurveyStore((s) => s.token);
+  const logout            = useSurveyStore((s) => s.logout);
+  const setSelectedRatee  = useSurveyStore((s) => s.setSelectedRatee);
   const setSelectedPeriod = useSurveyStore((s) => s.setSelectedPeriod);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!rater || !token) navigate("/login", { replace: true });
   }, [rater, token, navigate]);
@@ -87,41 +126,43 @@ export default function RateNames() {
   const cfg = CONFIG[relationship] ?? CONFIG.peer;
 
   // ── Form state ──────────────────────────────────────────────────────────────
-  const [raterName,    setRaterName]    = useState(rater?.full_name ?? "");
-  const [rateeValue,   setRateeValue]   = useState("");  // assignment_id of selected ratee
-  const [dateEval,     setDateEval]     = useState(getTodayDate());
-  const [formError,    setFormError]    = useState("");
+  const [raterName,  setRaterName]  = useState(rater?.full_name ?? "");
+  const [rateeValue, setRateeValue] = useState("");
+  const [dateEval,   setDateEval]   = useState(getTodayDate());
+  const [formError,  setFormError]  = useState("");
 
-  // ── Supabase data state ─────────────────────────────────────────────────────
-  const [ratees,       setRatees]       = useState([]);   // [{ assignment_id, ratee_id, full_name, is_submitted }]
-  const [loading,      setLoading]      = useState(true);
-  const [fetchError,   setFetchError]   = useState("");
+  // ── Fetch state ─────────────────────────────────────────────────────────────
+  const [ratees,     setRatees]     = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(null); // ApiError | null
 
-  // ── Fetch ratees + active period from Express → Supabase ───────────────────
-  useEffect(() => {
+  // ── Fetch ratees from Supabase via Express ───────────────────────────────────
+  async function fetchData() {
     if (!token || !relationship) return;
+    setLoading(true);
+    setFetchError(null);
+    setRatees([]);
 
-    async function fetchData() {
-      setLoading(true);
-      setFetchError("");
-      try {
-        // Fetch ratees for this rater + relationship (from ratee_rater_assignments)
-        const { period_id, ratees: rateeList } = await getRatees(token, relationship);
+    try {
+      // Both calls in parallel — faster load
+      const [{ period_id, ratees: rateeList }, period] = await Promise.all([
+        getRatees(token, relationship),
+        getActivePeriod(token),
+      ]);
 
-        // Fetch full period details for the store
-        const period = await getActivePeriod(token);
-        setSelectedPeriod(period);
+      setSelectedPeriod(period);
+      setRatees(rateeList);
 
-        setRatees(rateeList);
-      } catch (err) {
-        setFetchError(err.message);
-      } finally {
-        setLoading(false);
-      }
+      console.log(`✅ Loaded ${rateeList.length} ratee(s) for relationship="${relationship}"`);
+    } catch (err) {
+      console.error("❌ RateNames fetch error:", err.message, "| status:", err.status);
+      setFetchError(err);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    fetchData();
-  }, [token, relationship]);
+  useEffect(() => { fetchData(); }, [token, relationship]);
 
   function handleLogout() {
     logout();
@@ -143,16 +184,12 @@ export default function RateNames() {
     }
     setFormError("");
 
-    // Save selected ratee into Zustand store
-    // value = assignment_id; find the matching ratee object for full_name + ratee_id
-    const selected = ratees.find((r) => r.assignment_id === rateeValue);
+    const selected = ratees.find((r) => r.ratee_id === rateeValue);
     setSelectedRatee({
-      assignment_id: selected.assignment_id,
-      id:            selected.ratee_id,
-      full_name:     selected.full_name,
+      id:        selected.ratee_id,
+      full_name: selected.full_name,
     });
     useSurveyStore.setState({ dateEvaluated: dateEval });
-
     navigate(`/survey-cat1/${relationship}`);
   }
 
@@ -181,12 +218,10 @@ export default function RateNames() {
       <div className="container-fliud">
         <div className="container" />
 
-        {/* Assessment form title banner */}
         <div className={cfg.partCardClass}>
           <h5>{cfg.formTitle}</h5>
         </div>
 
-        {/* Ratee-Rater list hint */}
         <div className="container_whorate">
           <div className="whorate_card">
             <a>Unsure who to rate? Click this to know the</a>
@@ -194,7 +229,7 @@ export default function RateNames() {
           </div>
         </div>
 
-        {/* Rater name — pre-filled from users.full_name, editable */}
+        {/* Rater name */}
         <div className={cfg.raterCardClass}>
           <label htmlFor={cfg.raterInputId}>Rater (Your Name)</label>
           <input
@@ -208,13 +243,14 @@ export default function RateNames() {
           />
         </div>
 
-        {/* Ratee dropdown — populated from Supabase ratee_rater_assignments */}
+        {/* Ratee dropdown — live from Supabase */}
         <div className={cfg.rateeCardClass}>
           <label htmlFor={cfg.rateeSelectId}>{cfg.rateeLabel}</label>
 
-          {fetchError ? (
-            <p style={{ color: "red", fontSize: "14px" }}>{fetchError}</p>
-          ) : (
+          {/* Error banner with retry button */}
+          <ErrorBanner error={fetchError} onRetry={fetchData} />
+
+          {!fetchError && (
             <select
               id={cfg.rateeSelectId}
               value={rateeValue}
@@ -223,22 +259,25 @@ export default function RateNames() {
               disabled={loading}
             >
               <option value="">
-                {loading ? "Loading ratees..." : "--Select Ratee--"}
+                {loading ? "⏳ Loading ratees..." : "--Select Ratee--"}
               </option>
+              {!loading && ratees.length === 0 && (
+                <option disabled>No ratees assigned to you for this period</option>
+              )}
               {ratees.map((r) => (
                 <option
-                  key={r.assignment_id}
-                  value={r.assignment_id}
+                  key={r.ratee_id}
+                  value={r.ratee_id}
                   disabled={r.is_submitted}
                 >
-                  {r.full_name}{r.is_submitted ? " (Already Submitted)" : ""}
+                  {r.full_name}{r.is_submitted ? " ✓ (Already Submitted)" : ""}
                 </option>
               ))}
             </select>
           )}
         </div>
 
-        {/* Date Evaluated — defaults to today, still editable */}
+        {/* Date Evaluated — defaults to today, editable */}
         <div className={cfg.dateCardClass}>
           <label htmlFor={cfg.dateInputId}>Date Evaluated</label>
           <input
@@ -252,17 +291,15 @@ export default function RateNames() {
           />
         </div>
 
-        {/* Validation error */}
         {formError && (
           <p style={{ color: "red", textAlign: "center", marginBottom: "1rem" }}>
             {formError}
           </p>
         )}
 
-        {/* Prev / Next buttons */}
         <div className="buttons">
           <button className="prev" onClick={handlePrev}>« Prev</button>
-          <button className="next" onClick={handleNext} disabled={loading}>
+          <button className="next" onClick={handleNext} disabled={loading || !!fetchError}>
             Next »
           </button>
         </div>

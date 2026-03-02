@@ -1,17 +1,16 @@
 // client/src/api/auth.js
-const API_URL = ""; // Empty — Vite proxy handles /api/* → localhost:5000
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000"; // ← Change this
 
 export async function login({ email, password }) {
   let res, data;
 
   try {
-    res = await fetch(`${API_URL}/api/v1/auth/login`, {
+    res = await fetch(`${API_URL}/api/v1/auth/login`, { // ← Now uses full URL
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ email, password }),
     });
   } catch (networkErr) {
-    // Server is completely unreachable
     throw new Error(
       "Cannot reach the server. Make sure the backend is running on port 5000."
     );
@@ -24,7 +23,6 @@ export async function login({ email, password }) {
   }
 
   if (!res.ok) {
-    // Use the server's message, or a status-based fallback
     const fallback = {
       400: "Missing email or password.",
       401: "Invalid email or password.",
@@ -39,13 +37,14 @@ export async function login({ email, password }) {
 }
 
 export async function logout(token) {
+  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000"; // ← Add this
+  
   try {
-    await fetch(`${API_URL}/api/v1/auth/logout`, {
+    await fetch(`${API_URL}/api/v1/auth/logout`, { // ← Now uses full URL
       method:  "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch {
-    // Silently fail — local state is cleared regardless
     console.warn("Logout request failed (network error).");
   }
 }

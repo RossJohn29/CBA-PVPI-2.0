@@ -1,10 +1,9 @@
 // server/controllers/surveyController.js
-// Handles all survey-related queries against Supabase.
+// No assignments table — every user can evaluate every other active user.
 
 import supabase from "../config/supabase.js";
 
 // ── GET /api/v1/survey/period ─────────────────────────────────────────────────
-// Returns the currently active evaluation_period.
 export async function getActivePeriod(req, res) {
   const { data, error } = await supabase
     .from("evaluation_periods")
@@ -13,7 +12,6 @@ export async function getActivePeriod(req, res) {
     .single();
 
   if (error) {
-    // PGRST116 = no rows — no active period configured yet
     if (error.code === "PGRST116") {
       return res.status(404).json({ message: "No active evaluation period found." });
     }
@@ -25,12 +23,12 @@ export async function getActivePeriod(req, res) {
 }
 
 // ── GET /api/v1/survey/ratees?relationship=subordinate|superior|peer ──────────
-// Returns the list of ratees the logged-in rater is assigned to for the
-// active period and the given relationship.
-// Joins ratee_rater_assignments → users (ratee) to get full_name.
+// Returns ALL active users except the logged-in rater.
+// Marks each user as already submitted if rater completed this
+// rater+ratee+period+relationship combination.
 export async function getRatees(req, res) {
-  const raterId       = req.user.sub;                          // from JWT
-  const { relationship } = req.query;                         // 'subordinate' | 'superior' | 'peer'
+  const raterId          = req.user.sub;
+  const { relationship } = req.query;
 
   if (!relationship) {
     return res.status(400).json({ message: "relationship query param is required." });
@@ -47,51 +45,42 @@ export async function getRatees(req, res) {
     return res.status(404).json({ message: "No active evaluation period found." });
   }
 
-  // 2. Get assignments for this rater + relationship + period
-  //    Join to users table to get the ratee's full_name
-  const { data: assignments, error: assignError } = await supabase
-    .from("ratee_rater_assignments")
-    .select(`
-      id,
-      relationship,
-      ratee_id,
-      users!ratee_rater_assignments_ratee_id_fkey (
-        id,
-        full_name,
-        department_id
-      )
-    `)
+  // 2. Get ALL active users except the logged-in rater
+  const { data: allUsers, error: usersError } = await supabase
+    .from("users")
+    .select("id, full_name, department_id")
+    .eq("is_active", true)
+    .neq("id", raterId)
+    .order("full_name", { ascending: true });
+
+  if (usersError) {
+    console.error("❌ getRatees users error:", usersError.message);
+    return res.status(500).json({ message: "Database error fetching users." });
+  }
+
+  // 3. Check which ratees the rater already submitted for
+  //    (same period + same relationship type)
+  const { data: submitted, error: subError } = await supabase
+    .from("submissions")
+    .select("ratee_id")
     .eq("rater_id", raterId)
     .eq("period_id", period.id)
-    .eq("relationship", relationship);
+    .eq("relationship", relationship)
+    .eq("is_complete", true);
 
-  if (assignError) {
-    console.error("❌ getRatees error:", assignError.message);
-    return res.status(500).json({ message: "Database error." });
+  if (subError) {
+    console.error("❌ getRatees submissions error:", subError.message);
+    return res.status(500).json({ message: "Database error fetching submissions." });
   }
 
-  // 3. Check if rater already submitted for each assignment
-  //    so the frontend can disable already-completed ratees
-  const assignmentIds = assignments.map((a) => a.id);
+  const submittedRateeIds = new Set((submitted ?? []).map((s) => s.ratee_id));
 
-  let submittedIds = [];
-  if (assignmentIds.length > 0) {
-    const { data: submissions } = await supabase
-      .from("submissions")
-      .select("assignment_id")
-      .in("assignment_id", assignmentIds)
-      .eq("is_complete", true);
-
-    submittedIds = (submissions ?? []).map((s) => s.assignment_id);
-  }
-
-  // 4. Shape the response
-  const ratees = assignments.map((a) => ({
-    assignment_id: a.id,
-    ratee_id:      a.users.id,
-    full_name:     a.users.full_name,
-    department_id: a.users.department_id,
-    is_submitted:  submittedIds.includes(a.id),
+  // 4. Shape response
+  const ratees = allUsers.map((u) => ({
+    ratee_id:      u.id,
+    full_name:     u.full_name,
+    department_id: u.department_id,
+    is_submitted:  submittedRateeIds.has(u.id),
   }));
 
   return res.status(200).json({ period_id: period.id, ratees });
