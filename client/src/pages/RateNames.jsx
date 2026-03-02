@@ -25,6 +25,7 @@ const CONFIG = {
     dateInputName:  "spdteval",
     dateInputClass: "superdateeval",
     rateeLabel:     "Ratee / Superior (Person to Evaluate)",
+    nextRoute:      "/survey-cat-superior/1",
   },
   subordinate: {
     formTitle:      "Subordinate Assessment Form",
@@ -39,6 +40,7 @@ const CONFIG = {
     dateInputName:  "sbdteval",
     dateInputClass: "subordateeval",
     rateeLabel:     "Ratee / Subordinate (Person to Evaluate)",
+    nextRoute:      "/survey-cat-subordinate/1",
   },
   peer: {
     formTitle:      "Peer Assessment Form",
@@ -53,6 +55,7 @@ const CONFIG = {
     dateInputName:  "prdteval",
     dateInputClass: "peerdateeval",
     rateeLabel:     "Ratee (Person to Evaluate)",
+    nextRoute:      "/survey-cat-peer/1",   // ✅ fixed — matches SurveyCatPeer route
   },
 };
 
@@ -60,7 +63,6 @@ const CONFIG = {
 function ErrorBanner({ error, onRetry }) {
   if (!error) return null;
 
-  // Derive a helpful hint based on the error type / status
   let hint = null;
   if (error.status === 0) {
     hint = "👉 Make sure your backend server is running: cd server && npm run dev";
@@ -73,52 +75,26 @@ function ErrorBanner({ error, onRetry }) {
   }
 
   return (
-    <div style={{
-      margin: "1rem auto",
-      maxWidth: "500px",
-      padding: "1rem",
-      backgroundColor: "#fff3cd",
-      border: "1px solid #ffc107",
-      borderRadius: "8px",
-      textAlign: "center",
-    }}>
-      <p style={{ color: "#856404", fontWeight: "bold", marginBottom: "4px" }}>
-        ⚠️ {error.message}
-      </p>
-      {hint && (
-        <p style={{ color: "#856404", fontSize: "13px", marginBottom: "8px" }}>
-          {hint}
-        </p>
-      )}
-      <button
-        onClick={onRetry}
-        style={{
-          marginTop: "4px",
-          padding: "6px 16px",
-          backgroundColor: "#2B6CA3",
-          color: "#fff",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-          fontSize: "14px",
-        }}
-      >
-        🔄 Retry
-      </button>
+    <div style={{ color: "red", padding: "0.75rem 1rem", margin: "0.5rem auto", maxWidth: "400px", textAlign: "center" }}>
+      <strong>Could not load ratees:</strong> {error.message}
+      {hint && <div style={{ marginTop: "0.4rem", fontSize: "0.9em" }}>{hint}</div>}
+      <br />
+      <button onClick={onRetry} style={{ marginTop: "0.5rem" }}>Retry</button>
     </div>
   );
 }
 
 export default function RateNames() {
-  const navigate          = useNavigate();
-  const { relationship }  = useParams();
+  const navigate         = useNavigate();
+  const { relationship } = useParams();   // 'peer' | 'subordinate' | 'superior'
 
   const rater             = useSurveyStore((s) => s.rater);
   const token             = useSurveyStore((s) => s.token);
-  const logout            = useSurveyStore((s) => s.logout);
   const setSelectedRatee  = useSurveyStore((s) => s.setSelectedRatee);
   const setSelectedPeriod = useSurveyStore((s) => s.setSelectedPeriod);
+  const logout            = useSurveyStore((s) => s.logout);
 
+  // Auth guard
   useEffect(() => {
     if (!rater || !token) navigate("/login", { replace: true });
   }, [rater, token, navigate]);
@@ -136,7 +112,7 @@ export default function RateNames() {
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState(null); // ApiError | null
 
-  // ── Fetch ratees from Supabase via Express ───────────────────────────────────
+  // ── Fetch ratees from Supabase via Express ────────────────────────────────
   async function fetchData() {
     if (!token || !relationship) return;
     setLoading(true);
@@ -145,7 +121,7 @@ export default function RateNames() {
 
     try {
       // Both calls in parallel — faster load
-      const [{ period_id, ratees: rateeList }, period] = await Promise.all([
+      const [{ ratees: rateeList }, period] = await Promise.all([
         getRatees(token, relationship),
         getActivePeriod(token),
       ]);
@@ -190,7 +166,9 @@ export default function RateNames() {
       full_name: selected.full_name,
     });
     useSurveyStore.setState({ dateEvaluated: dateEval });
-    navigate(`/survey-cat1/${relationship}`);
+
+    // ✅ Navigate to the correct survey route per relationship
+    navigate(cfg.nextRoute);
   }
 
   const displayName = rater?.full_name ?? "User";

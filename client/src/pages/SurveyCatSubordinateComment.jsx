@@ -1,12 +1,18 @@
-// client/src/pages/SurveyCatPeerComment.jsx
+// client/src/pages/SurveyCatSubordinateComment.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Consolidates: surveycat8_9peer.html
-// CSS rename  : peersurveycat8_9.css  →  SurveyCatPeerComment.css
-// Route       : /survey-cat-peer-comment
+// Consolidates: surveycat8_9subor.html
+// CSS rename  : peersurveycat8_9.css  →  SurveyCatSubordinateComment.css
+// Route       : /survey-cat-subordinate-comment
+//
+// Differences from Peer comment page:
+//   • 3 textareas: Strengths (sbc8), Areas of Improvements (sbc9),
+//     Development Goals (sbc10)
+//   • Yes/No radio: "Are you done rating all your ratees?" (sbc11)
+//   • Reminder text: "Do not click DONE until you have completed all the evaluation."
 //
 // Backend integration:
 //   • On submit calls POST /api/v1/survey/submit with all Zustand answers
-//     + the two freeform comments (strengths & areas of improvement).
+//     + all three freeform comments.
 //   • On success: clears survey state and navigates to /survey-ty.
 //   • Handles 409 duplicate and other API errors gracefully.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,9 +21,9 @@ import { useState, useEffect } from "react";
 import { useNavigate }         from "react-router-dom";
 import useSurveyStore          from "../store/surveyStore";
 import { submitSurvey }        from "../api/survey";
-import "../assets/SurveyCatPeerComment.css";
+import "../assets/SurveyCatSubordinateComment.css";   // ← same content as peersurveycat8_9.css
 
-export default function SurveyCatPeerComment() {
+export default function SurveyCatSubordinateComment() {
   const navigate = useNavigate();
 
   const rater          = useSurveyStore((s) => s.rater);
@@ -30,20 +36,31 @@ export default function SurveyCatPeerComment() {
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!rater || !token) navigate("/login",           { replace: true });
-    if (!selectedRatee)   navigate("/rate-names/peer", { replace: true });
+    if (!rater || !token) navigate("/login",                  { replace: true });
+    if (!selectedRatee)   navigate("/rate-names/subordinate", { replace: true });
   }, [rater, token, selectedRatee, navigate]);
 
   // ── State — ids / names match original HTML exactly ───────────────────────
-  const [prc8freeform, setPrc8freeform] = useState("");   // id="prc8freeform" name="peercat8"
-  const [prc9freeform, setPrc9freeform] = useState("");   // id="prc9freeform" name="peercat9"
+  // id="sbc8freeform"  name="suborcat8"
+  const [sbc8freeform, setSbc8freeform] = useState("");
+  // id="sbc9freeform"  name="suborcat9"
+  const [sbc9freeform, setSbc9freeform] = useState("");
+  // id="sbc10freeform" name="suborcat10"
+  const [sbc10freeform, setSbc10freeform] = useState("");
+  // id="sbc11radyes" / id="sbc11radno"  name="suborcat11"
+  const [sbc11radio, setSbc11radio] = useState("");
+
   const [formError,    setFormError]    = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Submit handler ─────────────────────────────────────────────────────────
   async function submitSurveyHandler() {
-    if (!prc8freeform.trim() || !prc9freeform.trim()) {
-      setFormError("Please fill in both Strengths and Areas of Improvements.");
+    if (!sbc8freeform.trim() || !sbc9freeform.trim() || !sbc10freeform.trim()) {
+      setFormError("Please fill in Strengths, Areas of Improvements, and Development Goals.");
+      return;
+    }
+    if (!sbc11radio) {
+      setFormError("Please answer whether you are done rating all your ratees.");
       return;
     }
     setFormError("");
@@ -59,13 +76,15 @@ export default function SurveyCatPeerComment() {
     const today = new Date().toISOString().split("T")[0];
     const payload = {
       ratee_id:       selectedRatee.id,
-      relationship:   "peer",
+      relationship:   "subordinate",
       period_id:      selectedPeriod?.id ?? null,
       date_evaluated: today,
       answers:        answersArray,
       comments: {
-        strengths:            prc8freeform.trim(),
-        areas_of_improvement: prc9freeform.trim(),
+        strengths:            sbc8freeform.trim(),
+        areas_of_improvement: sbc9freeform.trim(),
+        development_goals:    sbc10freeform.trim(),
+        done_rating_all:      sbc11radio,
       },
     };
 
@@ -112,9 +131,9 @@ export default function SurveyCatPeerComment() {
           <div className="row">
             <div className="col-md">
               <div className="card-content">
-                <img src="images/icon3.png" alt="peer" />
+                <img src="images/icon1.png" alt="subordinate" />
                 <a>
-                  <h5>You are rating Peer,</h5>
+                  <h5>You are rating Subordinate,</h5>
                   <h6>{rateeName}</h6>
                 </a>
               </div>
@@ -130,30 +149,82 @@ export default function SurveyCatPeerComment() {
         <div className="container-card">
           <div className="container-card-inside">
 
-            {/* Strengths — id="prc8freeform" name="peercat8" */}
+            {/* Strengths — id="sbc8freeform" name="suborcat8" */}
             <div className="c8_card">
-              <label htmlFor="prc8freeform">Strengths</label>
+              <label htmlFor="sbc8freeform">Strengths</label>
               <textarea
-                id="prc8freeform"
-                name="peercat8"
+                id="sbc8freeform"
+                name="suborcat8"
                 placeholder="Enter text here..."
                 required
-                value={prc8freeform}
-                onChange={(e) => setPrc8freeform(e.target.value)}
+                value={sbc8freeform}
+                onChange={(e) => setSbc8freeform(e.target.value)}
               />
             </div>
 
-            {/* Areas of Improvements — id="prc9freeform" name="peercat9" */}
+            {/* Areas of Improvements — id="sbc9freeform" name="suborcat9" */}
             <div className="c9_card">
-              <label htmlFor="prc9freeform">Areas of Improvements</label>
+              <label htmlFor="sbc9freeform">Areas of Improvements</label>
               <textarea
-                id="prc9freeform"
-                name="peercat9"
+                id="sbc9freeform"
+                name="suborcat9"
                 placeholder="Enter text here..."
                 required
-                value={prc9freeform}
-                onChange={(e) => setPrc9freeform(e.target.value)}
+                value={sbc9freeform}
+                onChange={(e) => setSbc9freeform(e.target.value)}
               />
+            </div>
+
+            {/* Development Goals — id="sbc10freeform" name="suborcat10" */}
+            <div className="c10_card">
+              <label htmlFor="sbc10freeform">Development Goals (Training, Special Projects, Development Assignments, Coaching etc.)</label>
+              <textarea
+                id="sbc10freeform"
+                name="suborcat10"
+                placeholder="Enter text here..."
+                required
+                value={sbc10freeform}
+                onChange={(e) => setSbc10freeform(e.target.value)}
+              />
+            </div>
+
+            {/* Done rating all ratees? — name="suborcat11" */}
+            <div className="c11_card">
+              <h3>Are you done rating all your ratees?</h3>
+              <div className="c11_cardyes_no">
+                <div>
+                  <label className="radio-label" htmlFor="sbc11radyes">
+                    <input
+                      type="radio"
+                      id="sbc11radyes"
+                      value="yes"
+                      name="suborcat11"
+                      className="radio-inputc11sb"
+                      required
+                      checked={sbc11radio === "yes"}
+                      onChange={() => setSbc11radio("yes")}
+                    />
+                    <span></span>
+                    <div className="c11sbyes">Yes, I'm done.</div>
+                  </label>
+                </div>
+                <div>
+                  <label className="radio-label" htmlFor="sbc11radno">
+                    <input
+                      type="radio"
+                      id="sbc11radno"
+                      value="no"
+                      name="suborcat11"
+                      className="radio-inputc11sb"
+                      required
+                      checked={sbc11radio === "no"}
+                      onChange={() => setSbc11radio("no")}
+                    />
+                    <span></span>
+                    <div className="c11sbno">No, not yet.</div>
+                  </label>
+                </div>
+              </div>
             </div>
 
             {formError && (
@@ -161,11 +232,11 @@ export default function SurveyCatPeerComment() {
             )}
 
             <div className="c8c9reminder">
-              <a><b>Reminder:</b> Click <b style={{ color: "red" }}>DONE</b> once you have completed the evaluation.</a>
+              <a><b>Reminder: </b><b style={{ color: "red" }}>Do not click DONE</b> until you have completed all the evaluation.</a>
             </div>
 
             <div className="buttons">
-              <button className="prev" onClick={() => navigate("/survey-cat-peer/7")} disabled={isSubmitting}>&laquo; Prev</button>
+              <button className="prev" onClick={() => navigate("/survey-cat-subordinate/7")} disabled={isSubmitting}>&laquo; Prev</button>
               <button className="done" onClick={submitSurveyHandler} disabled={isSubmitting}>
                 {isSubmitting ? "Submitting…" : <>Done &#10004;</>}
               </button>

@@ -2,20 +2,18 @@
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
 
-// ── Error types so the UI can show specific messages ─────────────────────────
+// ── Error class so the UI can show specific messages ──────────────────────────
 export class ApiError extends Error {
   constructor(message, status) {
     super(message);
-    this.name  = "ApiError";
+    this.name   = "ApiError";
     this.status = status;
   }
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// ── GET helper ────────────────────────────────────────────────────────────────
 async function apiFetch(path, token) {
   let res;
-
-  // 1. Network-level error (server not running, no internet)
   try {
     res = await fetch(`${API_URL}${path}`, {
       headers: {
@@ -23,14 +21,13 @@ async function apiFetch(path, token) {
         "Authorization": `Bearer ${token}`,
       },
     });
-  } catch (networkErr) {
+  } catch {
     throw new ApiError(
       "Cannot reach the server. Make sure the backend is running on port 5000.",
       0
     );
   }
 
-  // 2. Non-JSON response (e.g. HTML error page)
   let data;
   try {
     data = await res.json();
@@ -38,7 +35,39 @@ async function apiFetch(path, token) {
     throw new ApiError(`Server returned an unexpected response (${res.status}).`, res.status);
   }
 
-  // 3. HTTP error with a message from Express
+  if (!res.ok) {
+    throw new ApiError(data.message || `Request failed (${res.status}).`, res.status);
+  }
+
+  return data;
+}
+
+// ── POST helper ───────────────────────────────────────────────────────────────
+async function apiPost(path, token, body) {
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method:  "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(
+      "Cannot reach the server. Make sure the backend is running on port 5000.",
+      0
+    );
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new ApiError(`Server returned an unexpected response (${res.status}).`, res.status);
+  }
+
   if (!res.ok) {
     throw new ApiError(data.message || `Request failed (${res.status}).`, res.status);
   }
@@ -55,4 +84,25 @@ export function getActivePeriod(token) {
 // Returns all active users (except self) with is_submitted flag per relationship
 export function getRatees(token, relationship) {
   return apiFetch(`/api/v1/survey/ratees?relationship=${relationship}`, token);
+}
+
+// ── GET /api/v1/survey/status?ratee_id=&relationship= ────────────────────────
+// Returns { is_submitted: boolean }
+// Call on Cat 1 mount to redirect raters who already submitted for this ratee.
+export function getSurveyStatus(token, rateeId, relationship) {
+  return apiFetch(
+    `/api/v1/survey/status?ratee_id=${rateeId}&relationship=${relationship}`,
+    token
+  );
+}
+
+// ── POST /api/v1/survey/submit ────────────────────────────────────────────────
+// Payload: {
+//   ratee_id, relationship, period_id?, date_evaluated,
+//   answers: [{ question_id, score, is_na }],
+//   comments: { strengths, areas_of_improvement, development_goals?, done_rating_all? }
+// }
+// Returns: { message, submission_id }
+export function submitSurvey(token, payload) {
+  return apiPost("/api/v1/survey/submit", token, payload);
 }

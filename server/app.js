@@ -38,6 +38,8 @@ app.get("/api/v1", (_req, res) => {
       logout:        "POST /api/v1/auth/logout",
       activePeriod:  "GET  /api/v1/survey/period",
       ratees:        "GET  /api/v1/survey/ratees?relationship=peer|subordinate|superior",
+      surveyStatus:  "GET  /api/v1/survey/status?ratee_id=&relationship=",
+      surveySubmit:  "POST /api/v1/survey/submit",
     },
   });
 });
