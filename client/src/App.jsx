@@ -8,24 +8,11 @@ import SurveyCatPeer                from "./pages/SurveyCatPeer";
 import SurveyCatPeerComment         from "./pages/SurveyCatPeerComment";
 import SurveyCatSubordinate         from "./pages/SurveyCatSubordinate";
 import SurveyCatSubordinateComment  from "./pages/SurveyCatSubordinateComment";
+import SurveyCatSuperior            from "./pages/SurveyCatSuperior";
+import SurveyCatSuperiorComment     from "./pages/SurveyCatSuperiorComment";
+import SurveyTY                     from "./pages/SurveyTY";
 
-// Future pages (uncomment when ready):
-// import SurveyCatSuperior           from "./pages/SurveyCatSuperior";
-// import SurveyCatSuperiorComment    from "./pages/SurveyCatSuperiorComment";
 // import AdminDashboard              from "./pages/AdminDashboard";
-
-// Simple thank-you page inline — replace with a proper component later
-function SurveyTY() {
-  return (
-    <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-      <h2>Thank you for completing the survey!</h2>
-      <p>Your responses have been submitted successfully.</p>
-      <a href="/select-role" style={{ marginTop: "1.5rem", display: "inline-block" }}>
-        ← Back to Dashboard
-      </a>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -51,12 +38,12 @@ export default function App() {
         <Route path="/survey-cat-subordinate/:catNumber" element={<SurveyCatSubordinate />}        />
         <Route path="/survey-cat-subordinate-comment"    element={<SurveyCatSubordinateComment />} />
 
+        {/* ── Protected: Superior survey (7 categories + comments) ── */}
+        <Route path="/survey-cat-superior/:catNumber"  element={<SurveyCatSuperior />}        />
+        <Route path="/survey-cat-superior-comment"     element={<SurveyCatSuperiorComment />} />
+
         {/* ── Protected: Thank-you page ────────────────────────────── */}
         <Route path="/survey-ty" element={<SurveyTY />} />
-
-        {/* ── Future: Superior survey ──────────────────────────────── */}
-        {/* <Route path="/survey-cat-superior/:catNumber"  element={<SurveyCatSuperior />}        /> */}
-        {/* <Route path="/survey-cat-superior-comment"     element={<SurveyCatSuperiorComment />} /> */}
 
         {/* ── Future: Admin ────────────────────────────────────────── */}
         {/* <Route path="/admin" element={<AdminDashboard />} /> */}
