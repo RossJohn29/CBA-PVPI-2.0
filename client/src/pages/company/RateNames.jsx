@@ -1,9 +1,9 @@
-// client/src/pages/RateNames.jsx
+// client/src/pages/company/RateNames.jsx
 import { useState, useEffect }        from "react";
 import { useNavigate, useParams }     from "react-router-dom";
-import useSurveyStore                 from "../store/surveyStore";
-import { getRatees, getActivePeriod } from "../api/survey";
-import "../assets/RateNames.css";
+import useSurveyStore                 from "../../store/surveyStore";
+import { getRatees, getActivePeriod } from "../../api/survey";
+import "../../assets/RateNames.css";
 
 const pvpLogo = "/pvp.png";
 

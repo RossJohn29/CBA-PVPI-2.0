@@ -1,120 +1,135 @@
-// client/src/pages/SurveyCatPeer.jsx
+// client/src/pages/company/SurveyCatSubordinate.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Consolidates: surveycat1peer.html → surveycat7peer.html  (7 radio categories)
-// CSS rename  : survey2.css  →  SurveyCatPeer.css  (content unchanged)
-// Route       : /survey-cat-peer/:catNumber   (catNumber = 1 – 7)
+// Consolidates: surveycat1subor.html → surveycat7subor.html  (7 radio categories)
+// CSS rename  : survey2.css  →  SurveyCatSubordinate.css  (content unchanged)
+// Route       : /survey-cat-subordinate/:catNumber   (catNumber = 1 – 7)
 //
 // Backend integration:
 //   • On mount (cat 1 only) calls GET /api/v1/survey/status to block
 //     raters who already submitted for this ratee+relationship.
 //   • Per-category answers are kept in Zustand (surveyStore) until
-//     SurveyCatPeerComment fires the final POST /api/v1/survey/submit.
+//     SurveyCatSubordinateComment fires the final POST /api/v1/survey/submit.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import useSurveyStore from "../store/surveyStore";
-import { getSurveyStatus } from "../api/survey";
-import "../assets/SurveyCatPeer.css";
+import useSurveyStore from "../../store/surveyStore";
+import { getSurveyStatus } from "../../api/survey";
+import "../../assets/SurveyCatSubordinate.css";   // ← same content as survey2.css
 
 // =============================================================================
-// CATEGORY DATA
+// CATEGORY DATA  ── ids, text, and ordering match original HTML files exactly
 // =============================================================================
 const CATEGORIES = {
   1: {
     catTitle:  "Job Performance & Knowledge Category",
     partLabel: "PART 1 (Job Performance & Knowledge), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "jobperf",
+    rednote:   null,
     questions: [
-      { id: "peer1.1", text: "Accomplishes volume of work assigned to him/her." },
-      { id: "peer1.2", text: "Meets deadlines." },
-      { id: "peer1.3", text: "Delivers work outputs that are accurate, thorough and of high quality." },
-      { id: "peer1.4", text: "Has adequate knowledge & skills to perform expected work with minimal help." },
+      { id: "subor1.1", text: "Accomplishes volume of work assigned to him/her." },
+      { id: "subor1.2", text: "Meets deadlines." },
+      { id: "subor1.3", text: "Delivers work outputs that are accurate, thorough and of high quality." },
+      { id: "subor1.4", text: "Has adequate knowledge & skills to perform expected work with minimal help." },
     ],
   },
   2: {
     catTitle:  "Achieving Results",
     partLabel: "PART 2 (Functional Competencies), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   null,
     questions: [
-      { id: "peer2.1", text: "Identifies what needs to be done and doing it before being asked or before the situation requires it." },
-      { id: "peer2.2", text: "Demonstrates concern for satisfying one\u2019s external and/or internal customers." },
-      { id: "peer2.3", text: "Focuses on results and desired outcomes and how best to achieve them. Gets the job done." },
-      { id: "peer2.4", text: "Ensures that one\u2019s own and others\u2019 work and information are complete and accurate; carefully preparing for meetings and presentations." },
+      { id: "subor2.1", text: "Identifies what needs to be done and doing it before being asked or before the situation requires it." },
+      { id: "subor2.2", text: "Demonstrates concern for satisfying one\u2019s external and/or internal customers." },
+      { id: "subor2.3", text: "Focuses on results and desired outcomes and how best to achieve them. Gets the job done." },
+      { id: "subor2.4", text: "Ensures that one\u2019s own and others\u2019 work and information are complete and accurate; carefully preparing for meetings and presentations." },
     ],
   },
   3: {
     catTitle:  "Solving Problems",
     partLabel: "PART 2 (Functional Competencies), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   null,
     questions: [
-      { id: "peer3.1", text: "Tackles a problem by using a logical, systematic, sequential approach." },
-      { id: "peer3.2", text: "Anticipates the implications and consequences of situations and take appropriate action to be prepared for possible contingencies." },
-      { id: "peer3.3", text: "Is resourceful in seeking solutions and addressing work problems and concerns." },
+      { id: "subor3.1", text: "Tackles a problem by using a logical, systematic, sequential approach." },
+      { id: "subor3.2", text: "Anticipates the implications and consequences of situations and take appropriate action to be prepared for possible contingencies." },
+      { id: "subor3.3", text: "Is resourceful in seeking solutions and addressing work problems and concerns." },
     ],
   },
   4: {
     catTitle:  "Communication",
     partLabel: "PART 2 (Functional Competencies), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   null,
     questions: [
-      { id: "peer4.1", text: "Expresses oneself clearly in conversations and interactions with others." },
-      { id: "peer4.2", text: "Expresses oneself clearly in written outputs." },
+      { id: "subor4.1", text: "Expresses oneself clearly in conversations and interactions with others." },
+      { id: "subor4.2", text: "Expresses oneself clearly in written outputs." },
     ],
   },
   5: {
     catTitle:  "Personal Effectiveness",
     partLabel: "PART 2 (Functional Competencies), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   null,
     questions: [
-      { id: "peer5.1", text: "Takes personal responsibility for the quality and timeliness of work, and achieves results with little oversight." },
-      { id: "peer5.2", text: "Manages own time, priorities, and resources to achieve goals." },
-      { id: "peer5.3", text: "Maintains composure in highly stressful or adverse situations." },
-      { id: "peer5.4", text: "Diligently attends to details and pursues quality in accomplishing tasks." },
+      { id: "subor5.1", text: "Takes personal responsibility for the quality and timeliness of work, and achieves results with little oversight." },
+      { id: "subor5.2", text: "Manages own time, priorities, and resources to achieve goals." },
+      { id: "subor5.3", text: "Maintains composure in highly stressful or adverse situations." },
+      { id: "subor5.4", text: "Diligently attends to details and pursues quality in accomplishing tasks." },
     ],
   },
   6: {
     catTitle:  "Leadership",
     partLabel: "PART 2 (Functional Competencies), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   "*Please rate if your ratee has subordinates and has leadership roles. Otherwise, please click on N/A.",
     questions: [
-      { id: "peer6.1", text: "Inspires and motivates others to perform at their best." },
-      { id: "peer6.2", text: "Delegates responsibility and works with others and coach them to develop their capabilities." },
+      { id: "subor6.1", text: "Inspires and motivates others to perform at their best." },
+      { id: "subor6.2", text: "Delegates responsibility and works with others and coach them to develop their capabilities." },
+      { id: "subor6.3", text: "Enables co-workers to grow and succeed through feedback, instruction, and encouragement." },
+      { id: "subor6.4", text: "Gains others\u2019 support for ideas, proposals, projects, and solutions." },
+      { id: "subor6.5", text: "Develops, maintains, and strengthens partnerships with others inside or outside the organization who can provide information, assistance, and support." },
+      { id: "subor6.6", text: "Effectively coordinates ideas and resources to achieve goals." },
+      { id: "subor6.7", text: "Manages staff in ways that improve their ability to succeed on the job." },
+      { id: "subor6.8", text: "Uses knowledge of the organizational and political climate to solve problems and accomplish goals." },
     ],
   },
   7: {
     catTitle:  "Core Values",
     partLabel: "PART 3 (Core Values), the employee should be assessed on the extent to which he/she displays the competencies as described by their corresponding behaviors. The Rating Scale to be used for this section is shown below:",
     scale:     "functional",
+    rednote:   null,
     questions: [
-      { id: "peer7.1",  text: "Speaks the truth even when it is difficult." },
-      { id: "peer7.2",  text: "Tells us what we need to hear even if it\u2019s not what we want to hear." },
-      { id: "peer7.3",  text: "Does not engage in gossip nor encourages it." },
-      { id: "peer7.4",  text: "Does not talk about others behind their back in a negative way." },
-      { id: "peer7.5",  text: "Acknowledges and takes responsibility for mistakes." },
-      { id: "peer7.6",  text: "Complies with rules and regulations." },
-      { id: "peer7.7",  text: "Does not abuse company resources." },
-      { id: "peer7.8",  text: "Speaks up against dishonest or improper behavior." },
-      { id: "peer7.9",  text: "Does not engage in dishonest or improper behavior." },
-      { id: "peer7.10", text: "Follows our process from start to finish and we do not do shortcuts." },
-      { id: "peer7.11", text: "Politely declines gifts from OFWs, big or small, and explains why." },
-      { id: "peer7.12", text: "Upholds company values despite extreme personal or professional pressure." },
-      { id: "peer7.13", text: "Is a role model." },
-      { id: "peer7.14", text: "Uses work hours for work." },
-      { id: "peer7.15", text: "Supports our company\u2019s advocacies." },
-      { id: "peer7.16", text: "Actively participates in our company\u2019s CSR activities." },
-      { id: "peer7.17", text: "Helps our community (employees, workers and families)." },
-      { id: "peer7.18", text: "Does what he/she promise to do." },
-      { id: "peer7.19", text: "Acts and contributes even when not required or expected." },
-      { id: "peer7.20", text: "Does her/his best even outside of her/his comfort zone." },
-      { id: "peer7.21", text: "Completes each task with equal energy whether it is pleasant or not." },
+      { id: "subor7.1",  text: "Articulates our team\u2019s purpose and goals." },
+      { id: "subor7.2",  text: "Does what is right and not what is \u201cright for me\u201d." },
+      { id: "subor7.3",  text: "Acknowledges that success or failure is a shared result." },
+      { id: "subor7.4",  text: "Freely communicates with peers." },
+      { id: "subor7.5",  text: "Makes plans before executing a project." },
+      { id: "subor7.6",  text: "Accomplishes tasks on or before the deadline." },
+      { id: "subor7.7",  text: "Aims for zero mistakes." },
+      { id: "subor7.8",  text: "Meets our clients\u2019 requirements." },
+      { id: "subor7.9",  text: "Shares knowledge and best practices with our co-workers." },
+      { id: "subor7.10", text: "Follows our process from start to finish and we do not do shortcuts." },
+      { id: "subor7.11", text: "Politely declines gifts from OFWs, big or small, and explains why." },
+      { id: "subor7.12", text: "Upholds company values despite extreme personal or professional pressure." },
+      { id: "subor7.13", text: "Is a role model." },
+      { id: "subor7.14", text: "Uses work hours for work." },
+      { id: "subor7.15", text: "Supports our company\u2019s advocacies." },
+      { id: "subor7.16", text: "Actively participates in our company\u2019s CSR activities." },
+      { id: "subor7.17", text: "Helps our community (employees, workers and families)." },
+      { id: "subor7.18", text: "Does what he/she promise to do." },
+      { id: "subor7.19", text: "Acts and contributes even when not required or expected." },
+      { id: "subor7.20", text: "Does her/his best even outside of her/his comfort zone." },
+      { id: "subor7.21", text: "Completes each task with equal energy whether it is pleasant or not." },
     ],
   },
 };
 
 // =============================================================================
-// RATING SCALE DEFINITIONS
+// RATING SCALE DEFINITIONS  ── exact values/ids from original HTML preserved
 // =============================================================================
+
+// Cat 1: Poor / Unsatisfactory / Satisfactory / Very Good / Outstanding
 const SCALE_JOBPERF = {
   legendCols: 5,
   tableHeaders: ["1 or 1.5", "2 or 2.5", "3 or 3.5", "4 or 4.5", "5"],
@@ -140,6 +155,7 @@ const SCALE_JOBPERF = {
   ],
 };
 
+// Cat 2–7: Rarely / Sometimes / Often / Most of the time / Always + N/A
 const SCALE_FUNCTIONAL = {
   legendCols: 6,
   tableHeaders: ["1 or 1.5", "2 or 2.5", "3 or 3.5", "4 or 4.5", "5", "N/A"],
@@ -167,7 +183,11 @@ const SCALE_FUNCTIONAL = {
 };
 
 // =============================================================================
-// RADIO ROW
+// RADIO ROW — replicates original HTML naming conventions exactly:
+//   label class  : "radio1" / "radio2" / ... (per question index)
+//   input class  : "radio__input" (q1) | "radio__input2" / "radio__input3" ... (q2+)
+//   name attr    : "voting1" / "voting2" / ...
+//   id attr      : "sbc{catNum}q{qNum}{idSuffix}"  e.g. "sbc4q1rad1", "sbc4q2rad1.5"
 // =============================================================================
 function RadioRow({ catNum, question, qIndex, scale, currentValue, onChange }) {
   const qNum       = qIndex + 1;
@@ -179,7 +199,7 @@ function RadioRow({ catNum, question, qIndex, scale, currentValue, onChange }) {
     <tr>
       <td className={`q${qNum}`} id={question.id}>{question.text}</td>
       {scale.radios.map((radio) => {
-        const inputId = `prc${catNum}q${qNum}${radio.idSuffix}`;
+        const inputId = `sbc${catNum}q${qNum}${radio.idSuffix}`;
         return (
           <td key={radio.idSuffix}>
             <label className={labelClass}>
@@ -206,7 +226,7 @@ function RadioRow({ catNum, question, qIndex, scale, currentValue, onChange }) {
 // =============================================================================
 // PAGE COMPONENT
 // =============================================================================
-export default function SurveyCatPeer() {
+export default function SurveyCatSubordinate() {
   const navigate      = useNavigate();
   const { catNumber } = useParams();
   const catNum        = parseInt(catNumber, 10);
@@ -220,8 +240,8 @@ export default function SurveyCatPeer() {
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!rater || !token) navigate("/login",           { replace: true });
-    if (!selectedRatee)   navigate("/rate-names/peer", { replace: true });
+    if (!rater || !token) navigate("/login",                    { replace: true });
+    if (!selectedRatee)   navigate("/rate-names/subordinate",   { replace: true });
   }, [rater, token, selectedRatee, navigate]);
 
   // ── Duplicate-submission guard (cat 1 only) ────────────────────────────────
@@ -229,7 +249,7 @@ export default function SurveyCatPeer() {
     if (catNum !== 1 || !token || !selectedRatee) return;
     async function checkStatus() {
       try {
-        const { is_submitted } = await getSurveyStatus(token, selectedRatee.id, "peer");
+        const { is_submitted } = await getSurveyStatus(token, selectedRatee.id, "subordinate");
         if (is_submitted) navigate("/survey-ty", { replace: true });
       } catch (err) {
         console.error("Status check failed:", err.message);
@@ -241,6 +261,7 @@ export default function SurveyCatPeer() {
   const catData = CATEGORIES[catNum];
   const scale   = catData?.scale === "jobperf" ? SCALE_JOBPERF : SCALE_FUNCTIONAL;
 
+  // Initialise from store so back-navigation restores previous answers
   const [localAnswers, setLocalAnswers] = useState(() => {
     const init = {};
     catData?.questions.forEach((q) => {
@@ -260,8 +281,8 @@ export default function SurveyCatPeer() {
 
   function handlePrev() {
     catNum === 1
-      ? navigate("/rate-names/peer")
-      : navigate(`/survey-cat-peer/${catNum - 1}`);
+      ? navigate("/rate-names/subordinate")
+      : navigate(`/survey-cat-subordinate/${catNum - 1}`);
   }
 
   function submitSurvey() {
@@ -272,8 +293,8 @@ export default function SurveyCatPeer() {
     }
     setFormError("");
     catNum === 7
-      ? navigate("/survey-cat-peer-comment")
-      : navigate(`/survey-cat-peer/${catNum + 1}`);
+      ? navigate("/survey-cat-subordinate-comment")
+      : navigate(`/survey-cat-subordinate/${catNum + 1}`);
   }
 
   function handleLogout() { logout(); navigate("/login", { replace: true }); }
@@ -307,9 +328,9 @@ export default function SurveyCatPeer() {
           <div className="row">
             <div className="col-md">
               <div className="card-content">
-                <img src="images/icon3.png" alt="peer" />
+                <img src="images/icon1.png" alt="subordinate" />
                 <a>
-                  <h5>You are rating Peer,</h5>
+                  <h5>You are rating Subordinate,</h5>
                   <h6>{rateeName}</h6>
                 </a>
               </div>
@@ -360,6 +381,13 @@ export default function SurveyCatPeer() {
             ))}
           </table>
         </div>
+
+        {/* Red note — only shown for Cat 6 (Leadership) */}
+        {catData.rednote && (
+          <div className="rednote">
+            <a>*Please rate if your ratee has subordinates and has leadership roles. Otherwise, please <b> click </b> on <b>N/A</b>.</a>
+          </div>
+        )}
 
         {formError && (
           <p style={{ color: "red", textAlign: "center", marginBottom: "1rem" }}>{formError}</p>

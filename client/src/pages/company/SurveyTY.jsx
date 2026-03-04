@@ -1,4 +1,4 @@
-// client/src/pages/SurveyTY.jsx
+// client/src/pages/company/SurveyTY.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Converts: survey_ty.html  (1 file → 1 component)
 // CSS     : survey_ty.css   → SurveyTY.css  (zero style changes)
@@ -7,8 +7,8 @@
 
 import { useEffect }   from "react";
 import { useNavigate } from "react-router-dom";
-import useSurveyStore  from "../store/surveyStore";
-import "../assets/SurveyTY.css";
+import useSurveyStore  from "../../store/surveyStore";
+import "../../assets/SurveyTY.css";
 
 export default function SurveyTY() {
   const navigate  = useNavigate();

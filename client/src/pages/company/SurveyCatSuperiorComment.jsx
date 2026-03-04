@@ -1,4 +1,4 @@
-// client/src/pages/SurveyCatSuperiorComment.jsx
+// client/src/pages/company/SurveyCatSuperiorComment.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Consolidates: surveycat7_8super.html
 // CSS rename  : supersurveycat7_8.css  →  SurveyCatSuperiorComment.css  (content unchanged)
@@ -13,9 +13,9 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate }         from "react-router-dom";
-import useSurveyStore          from "../store/surveyStore";
-import { submitSurvey }        from "../api/survey";
-import "../assets/SurveyCatSuperiorComment.css";   // ← same content as supersurveycat7_8.css
+import useSurveyStore          from "../../store/surveyStore";
+import { submitSurvey }        from "../../api/survey";
+import "../../assets/SurveyCatSuperiorComment.css";   // ← same content as supersurveycat7_8.css
 
 export default function SurveyCatSuperiorComment() {
   const navigate = useNavigate();

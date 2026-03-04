@@ -1,12 +1,12 @@
-// client/src/pages/SelectRole.jsx
+// client/src/pages/company/SelectRole.jsx
 // Converted from surveySelection.html — design unchanged.
 // Reads the logged-in user from surveyStore, shows the 3 role cards,
 // and navigates to the correct survey letter page on selection.
 
 import { useEffect }       from "react";
 import { useNavigate }     from "react-router-dom";
-import useSurveyStore      from "../store/surveyStore";
-import "../assets/Surveystyle.css";
+import useSurveyStore      from "../../store/surveyStore";
+import "../../assets/Surveystyle.css";
 
 // Images in /public are served at root — use URL strings, not JS imports
 const pvpLogo = "/pvp.png";

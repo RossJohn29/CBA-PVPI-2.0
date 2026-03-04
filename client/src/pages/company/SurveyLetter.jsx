@@ -1,4 +1,4 @@
-// client/src/pages/SurveyLetter.jsx
+// client/src/pages/company/SurveyLetter.jsx
 // Single component replacing surveyletterpeer.html, surveylettersubordinate.html,
 // and surveylettersuperior.html.
 // The relationship is read from the URL param: /survey-letter/:relationship
@@ -7,8 +7,8 @@
 
 import { useEffect }      from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import useSurveyStore     from "../store/surveyStore";
-import "../assets/SurveyLetter.css";
+import useSurveyStore     from "../../store/surveyStore";
+import "../../assets/SurveyLetter.css";
 
 const pvpLogo = "/pvp.png";
 

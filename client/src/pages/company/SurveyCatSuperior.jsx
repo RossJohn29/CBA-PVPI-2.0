@@ -1,4 +1,4 @@
-// client/src/pages/SurveyCatSuperior.jsx
+// client/src/pages/company/SurveyCatSuperior.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Consolidates: surveycat1super.html → surveycat6super.html  (6 radio categories)
 // CSS rename  : survey2.css  →  SurveyCatSuperior.css  (content unchanged)
@@ -13,9 +13,9 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import useSurveyStore from "../store/surveyStore";
-import { getSurveyStatus } from "../api/survey";
-import "../assets/SurveyCatSuperior.css";   // ← same content as survey2.css
+import useSurveyStore from "../../store/surveyStore";
+import { getSurveyStatus } from "../../api/survey";
+import "../../assets/SurveyCatSuperior.css";   // ← same content as survey2.css
 
 // =============================================================================
 // CATEGORY DATA  ── ids, text, and ordering match original HTML files exactly

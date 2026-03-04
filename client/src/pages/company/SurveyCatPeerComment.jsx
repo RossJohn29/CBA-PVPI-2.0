@@ -1,4 +1,4 @@
-// client/src/pages/SurveyCatPeerComment.jsx
+// client/src/pages/company/SurveyCatPeerComment.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Consolidates: surveycat8_9peer.html
 // CSS rename  : peersurveycat8_9.css  →  SurveyCatPeerComment.css
@@ -13,9 +13,9 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate }         from "react-router-dom";
-import useSurveyStore          from "../store/surveyStore";
-import { submitSurvey }        from "../api/survey";
-import "../assets/SurveyCatPeerComment.css";
+import useSurveyStore          from "../../store/surveyStore";
+import { submitSurvey }        from "../../api/survey";
+import "../../assets/SurveyCatPeerComment.css";
 
 export default function SurveyCatPeerComment() {
   const navigate = useNavigate();
