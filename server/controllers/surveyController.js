@@ -41,12 +41,31 @@ export async function getRatees(req, res) {
     return res.status(404).json({ message: "No active evaluation period found." });
   }
 
-  // 2. Get ALL active users except the logged-in rater
-  const { data: allUsers, error: usersError } = await supabase
+  // 2. Get ONLY ratees assigned to this rater with the specified relationship
+  const { data: assignments, error: assignError } = await supabase
+    .from("ratee_rater_assignments")
+    .select("ratee_id")
+    .eq("rater_id", raterId)
+    .eq("period_id", period.id)
+    .eq("relationship", relationship);
+
+  if (assignError) {
+    console.error("❌ getRatees assignments error:", assignError.message);
+    return res.status(500).json({ message: "Database error fetching assignments." });
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return res.status(200).json({ period_id: period.id, ratees: [] });
+  }
+
+  const assignedRateeIds = assignments.map((a) => a.ratee_id);
+
+  // 3. Fetch user details for only those assigned ratees
+  const { data: assignedUsers, error: usersError } = await supabase
     .from("users")
     .select("id, full_name, department_id")
     .eq("is_active", true)
-    .neq("id", raterId)
+    .in("id", assignedRateeIds)
     .order("full_name", { ascending: true });
 
   if (usersError) {
@@ -54,7 +73,7 @@ export async function getRatees(req, res) {
     return res.status(500).json({ message: "Database error fetching users." });
   }
 
-  // 3. Check which ratees the rater already submitted for
+  // 4. Check which ratees the rater already submitted for
   const { data: submitted, error: subError } = await supabase
     .from("submissions")
     .select("ratee_id")
@@ -70,7 +89,7 @@ export async function getRatees(req, res) {
 
   const submittedRateeIds = new Set((submitted ?? []).map((s) => s.ratee_id));
 
-  const ratees = allUsers.map((u) => ({
+  const ratees = (assignedUsers ?? []).map((u) => ({
     ratee_id:      u.id,
     full_name:     u.full_name,
     department_id: u.department_id,
